@@ -255,8 +255,7 @@ for oszlop in df_hutopanelek.columns:
         print("Maximum:", round(maximum, 2), "°C")
         print("Átlag:", round(atlag, 2), "°C")
 
-
-# Megkeressük a választott tartományon kívüli hőmérsékleteket.
+# Megkeressük a választott tartományon kívüli hőmérsékleteket. #SQLREWRITE
 print("\nGyanús hőmérsékleti értékek:")
 
 for oszlop in df_hutopanelek.columns:
@@ -284,7 +283,7 @@ for oszlop in df_hutopanelek.columns:
             )
 
 
-# Ellenőrizzük a hibás vagy hiányzó mérési időpontokat.
+# Ellenőrizzük a hibás vagy hiányzó mérési időpontokat. #SQLREWRITE
 print("\nIdőpontok ellenőrzése:")
 
 for oszlop in df_hutopanelek.columns:
@@ -305,7 +304,7 @@ for oszlop in df_hutopanelek.columns:
         )
 
 
-# Ellenőrizzük a mérési időpontok sorrendjét.
+# Ellenőrizzük a mérési időpontok sorrendjét. #SQLREWRITE
 print("\nIdőrend ellenőrzése:")
 
 for oszlop in df_hutopanelek.columns:
@@ -412,8 +411,6 @@ ORDER BY "ADAGSZÁM"
 
 adagok = cursor.fetchall()
 
-
-# Ellenőrizzük az adagok kezdési és befejezési időpontjait.
 print("\nIDŐTARTAMOK ELLENŐRZÉSE\n")
 
 for adag in adagok:
@@ -512,6 +509,20 @@ for adag in adagok:
             szamitott_percek
         )
 
+# Lekérdezzük a naponkénti adagok számát
+cursor.execute("""
+    SELECT 
+        Kezdet_DÁTUM, 
+        COUNT(ADAGSZÁM) 
+    FROM adagok
+    GROUP BY Kezdet_DÁTUM
+""")
+
+adagok_naponta = cursor.fetchall()
+
+print("\nNAPONKÉNTI ADAGOK SZÁMA\n")
+for adag in adagok_naponta:
+    print(f"Dátum: {adag[0]}, Adagok száma: {adag[1]}")
 
 # Bezárjuk az adatbázis-kapcsolatot.
 conn.close()
