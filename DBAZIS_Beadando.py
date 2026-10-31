@@ -158,7 +158,10 @@ df_hutopanelek = pd.read_csv(
     "input/Hutopanelek.csv",
     sep=";"
 )
+print("\nHŰTŐPANEL OSZLOPOK\n")
 
+for oszlop in df_hutopanelek.columns:
+    print(oszlop)
 
 # Egységes formátumra alakítjuk a mérési időpontokat.
 for oszlop in df_hutopanelek.columns:
@@ -255,7 +258,8 @@ for oszlop in df_hutopanelek.columns:
         print("Maximum:", round(maximum, 2), "°C")
         print("Átlag:", round(atlag, 2), "°C")
 
-# Megkeressük a választott tartományon kívüli hőmérsékleteket. #SQLREWRITE
+
+# Megkeressük a választott tartományon kívüli hőmérsékleteket.
 print("\nGyanús hőmérsékleti értékek:")
 
 for oszlop in df_hutopanelek.columns:
@@ -283,7 +287,7 @@ for oszlop in df_hutopanelek.columns:
             )
 
 
-# Ellenőrizzük a hibás vagy hiányzó mérési időpontokat. #SQLREWRITE
+# Ellenőrizzük a hibás vagy hiányzó mérési időpontokat.
 print("\nIdőpontok ellenőrzése:")
 
 for oszlop in df_hutopanelek.columns:
@@ -304,7 +308,7 @@ for oszlop in df_hutopanelek.columns:
         )
 
 
-# Ellenőrizzük a mérési időpontok sorrendjét. #SQLREWRITE
+# Ellenőrizzük a mérési időpontok sorrendjét.
 print("\nIdőrend ellenőrzése:")
 
 for oszlop in df_hutopanelek.columns:
@@ -334,13 +338,76 @@ for oszlop in df_hutopanelek.columns:
 print(
     "\nA Hűtőpanelek adatminőség-ellenőrzése befejeződött."
 )
+# Normalizáljuk a hűtőpanel-adatokat.
+normalizalt_adatok = []
 
+for oszlop in df_hutopanelek.columns:
 
-# Betöltjük a hűtőpanel-méréseket az adatbázisba.
-df_hutopanelek.to_sql(
+    if oszlop.endswith("Time"):
+
+        value_oszlop = oszlop.replace("Time", "ValueY")
+
+        if value_oszlop in df_hutopanelek.columns:
+
+            panel_szam = int(
+                oszlop.split("Panel hőfok ")[1].split(" ")[0]
+            )
+
+            panel_adatok = pd.DataFrame({
+                "panel_szam": panel_szam,
+                "idopont": df_hutopanelek[oszlop],
+                "homerseklet": df_hutopanelek[value_oszlop]
+            })
+
+            normalizalt_adatok.append(panel_adatok)
+
+df_meresek = pd.concat(
+    normalizalt_adatok,
+    ignore_index=True
+)
+
+print("\nNORMALIZÁLT HŰTŐPANEL-ADATOK\n")
+
+print(df_meresek)
+
+print(
+    "\nNormalizált mérések száma:",
+    len(df_meresek)
+)
+
+print(
+    "Panelek száma:",
+    df_meresek["panel_szam"].nunique()
+)
+
+print(
+    "Panelek:",
+    sorted(df_meresek["panel_szam"].unique())
+)
+
+print(
+    "Hiányzó értékek száma:",
+    df_meresek.isna().sum().sum()
+)
+
+print(
+    "Duplikált mérések száma:",
+    df_meresek.duplicated().sum()
+)
+
+print("\nMérések száma panelenként:")
+
+print(
+    df_meresek["panel_szam"]
+    .value_counts()
+    .sort_index()
+)
+
+# Betöltjük a normalizált hűtőpanel-méréseket az adatbázisba.
+df_meresek.to_sql(
     "Hűtőpanelek",
     con=conn,
-    if_exists="append",
+    if_exists="replace",
     index=False
 )
 
@@ -378,7 +445,13 @@ print(
     "Az adatbázisban lévő hűtőpanel-mérések száma:",
     hutopanel_rekordok
 )
+# Indexet hozunk létre az időpont szerinti keresések gyorsításához.
+cursor.execute("""
+CREATE INDEX IF NOT EXISTS idx_hutopanelek_idopont
+ON "Hűtőpanelek" (idopont)
+""")
 
+conn.commit()
 
 # Lekérdezzük az adatbázisban található adagszámokat.
 cursor.execute("""
@@ -411,6 +484,8 @@ ORDER BY "ADAGSZÁM"
 
 adagok = cursor.fetchall()
 
+
+# Ellenőrizzük az adagok kezdési és befejezési időpontjait.
 print("\nIDŐTARTAMOK ELLENŐRZÉSE\n")
 
 for adag in adagok:
